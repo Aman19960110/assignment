@@ -6,7 +6,7 @@ from backtest.engine import BacktestEngine
 
 
 files = glob.glob('data/nifty*.parquet')
-print(files)
+#print(files)
 all_results = []
 
 for f in files:

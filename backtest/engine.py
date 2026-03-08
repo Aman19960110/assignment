@@ -22,16 +22,16 @@ class BacktestEngine:
 
     def run(self):
 
-        for dt, row in self.df.groupby("datetime"):
+        for i, row in self.df.groupby("datetime"):
 
-            if dt.time() < Config.START_TIME:
+            if i.time() < Config.START_TIME:
                 continue
 
             spot_close = row["close_spot"].iloc[0]
             atm_strike = round(spot_close / 50) * 50
 
             straddle_row = self.pivot[
-                (self.pivot["datetime"] == dt) &
+                (self.pivot["datetime"] == i) &
                 (self.pivot["strike_price"] == atm_strike)
             ]
 
@@ -54,35 +54,35 @@ class BacktestEngine:
 
             call_atp = self.df[
                 (self.df["strike_price"] == call_strike) &
-                (self.df["datetime"] <= dt) &
+                (self.df["datetime"] <= i) &
                 (self.df["right"] == "Call")
             ]["close_opt"].mean()
 
             put_atp = self.df[
                 (self.df["strike_price"] == put_strike) &
-                (self.df["datetime"] <= dt) &
+                (self.df["datetime"] <= i) &
                 (self.df["right"] == "Put")
             ]["close_opt"].mean()
 
 
-            # INITIAL ENTRY
+            
 
-            if dt.time() <= Config.REENTRY_END:
+            if i.time() <= Config.REENTRY_END:
 
                 if not self.open_ce_trades and call_close < call_atp:
 
                     self.open_ce_trades.append(
-                        Trade("CE", call_strike, call_close, dt, spot_close, self.expiry, self.dte)
+                        Trade("CE", call_strike, call_close, i, spot_close, self.expiry, self.dte)
                     )
 
                 if not self.open_pe_trades and put_close < put_atp:
 
                     self.open_pe_trades.append(
-                        Trade("PE", put_strike, put_close, dt, spot_close, self.expiry, self.dte)
+                        Trade("PE", put_strike, put_close, i, spot_close, self.expiry, self.dte)
                     )
 
 
-            # CE TRADE MANAGEMENT
+            
 
             for trade in self.open_ce_trades.copy():
 
@@ -95,30 +95,30 @@ class BacktestEngine:
                 ce_high = opt["high_opt"].iloc[0]
 
                 exit_flag, exit_price, reason = trade.check_exit(
-                    ce_ltp, ce_high, dt.time(), call_atp, put_atp
+                    ce_ltp, ce_high, i.time(), call_atp, put_atp
                 )
 
                 if exit_flag:
 
                     self.results.append(
-                        trade.to_dict(dt, exit_price, reason, call_atp)
+                        trade.to_dict(i, exit_price, reason, call_atp)
                     )
 
                     self.open_ce_trades.remove(trade)
 
 
-                    # REENTRY → PE
+                    
 
-                    if dt.time() <= Config.REENTRY_END and len(self.open_pe_trades) < Config.MAX_TRADES_PE:
+                    if i.time() <= Config.REENTRY_END and len(self.open_pe_trades) < Config.MAX_TRADES_PE:
 
                         if put_close < put_atp:
 
                             self.open_pe_trades.append(
-                                Trade("PE", put_strike, put_close, dt, spot_close, self.expiry, self.dte)
+                                Trade("PE", put_strike, put_close, i, spot_close, self.expiry, self.dte)
                             )
 
 
-            # PE TRADE MANAGEMENT
+            
 
             for trade in self.open_pe_trades.copy():
 
@@ -131,24 +131,24 @@ class BacktestEngine:
                 pe_high = opt["high_opt"].iloc[0]
 
                 exit_flag, exit_price, reason = trade.check_exit(
-                    pe_ltp, pe_high, dt.time(), call_atp, put_atp
+                    pe_ltp, pe_high, i.time(), call_atp, put_atp
                 )
 
                 if exit_flag:
 
                     self.results.append(
-                        trade.to_dict(dt, exit_price, reason, put_atp)
+                        trade.to_dict(i, exit_price, reason, put_atp)
                     )
 
                     self.open_pe_trades.remove(trade)
 
 
-                    # REENTRY → CE
+                    
 
-                    if dt.time() <= Config.REENTRY_END and len(self.open_ce_trades) < Config.MAX_TRADES_CE:
+                    if i.time() <= Config.REENTRY_END and len(self.open_ce_trades) < Config.MAX_TRADES_CE:
 
                         if call_close < call_atp:
 
                             self.open_ce_trades.append(
-                                Trade("CE", call_strike, call_close, dt, spot_close, self.expiry, self.dte)
+                                Trade("CE", call_strike, call_close, i, spot_close, self.expiry, self.dte)
                             )

@@ -92,7 +92,7 @@ class Trade:
         return {
             'trade_status': 'close',
             'instrument_id': 'NIFTY',
-            'symbol': f'NIFTY{self.expiry}{self.strike}{self.side}',
+            'symbol': f'NIFTY{self.expiry.upper()}{self.strike}{self.side}',
             'option_type': self.side,
             'buy/sell': 'sell',
             'entry_date': self.entry_time.date(),
